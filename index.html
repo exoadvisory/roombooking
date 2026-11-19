@@ -69,7 +69,19 @@ details.more summary b{color:var(--ink);font-weight:600}
 .room.any{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center}
 .bar{position:fixed;left:0;right:0;bottom:0;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:rgba(246,241,232,.96);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-top:1px solid var(--line);z-index:5}
 .bar .btn{width:100%;max-width:528px;margin:0 auto;display:flex;padding:15px 18px;font-size:16px}
-.typed{display:none;margin-top:6px}.typed.show{display:block}
+.typed{display:none;margin-top:8px}.typed.show{display:inline-flex}
+.btn.speak{width:100%;padding:16px;font-size:17px;background:var(--sun);gap:10px;border-radius:14px}
+.btn.speak .mi{font-size:22px}.btn.speak.on{background:#c0392b;animation:pulse 1s infinite}
+textarea#said{min-height:84px}
+.combo{display:flex;justify-content:space-between;align-items:center;width:100%;border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff;font:inherit;color:inherit;text-align:left;margin-top:8px}
+.combo.on{border-color:var(--ink);box-shadow:0 0 0 2px var(--ink) inset}
+.combo small{color:var(--muted)}
+.ticks{list-style:none;margin:8px 0 0;padding:0}
+.ticks li{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line)}
+.ticks input{width:22px;height:22px;min-height:0;padding:0;-webkit-appearance:checkbox;appearance:auto;accent-color:var(--ink);flex:none}
+.ticks label{margin:0;flex:1;color:var(--ink);font-size:15px}
+.seatsum{margin-top:8px;font-weight:600}.seatsum.short{color:var(--bad)}
+.plan{list-style:none;margin:6px 0 0;padding:0}.plan li{font-size:14px;padding:2px 0}
 .acct{background:#fdf3e7;border-radius:10px;padding:8px 10px}
 </style>
 </head>
@@ -86,20 +98,17 @@ details.more summary b{color:var(--ink);font-weight:600}
   <div id="app" class="hidden">
     <section class="card">
       <h2>What do you need?</h2>
-      <div class="say">
-        <button class="btn mic" id="mic" aria-label="Speak your request">🎤</button>
-        <div style="flex:1">
-          <textarea id="said" rows="2" placeholder="e.g. A room to meet Alex and Jacqueline tomorrow 2.30pm for 2 hours"></textarea>
-          <p class="hint" id="micHint">Tap 🎤 and say what you need, or type it.</p>
-          <button class="btn ghost small typed" id="parse">✍️ Fill in</button>
-        </div>
-      </div>
+      <button class="btn speak" id="mic" type="button"><span class="mi">🎤</span><span id="micLbl">Tap and say what you need</span></button>
+      <p class="hint" id="micHint">Say the date, time and who you're meeting.</p>
+      <label for="said">…or type it</label>
+      <textarea id="said" rows="3" placeholder="e.g. A room to meet Alex and Jacqueline tomorrow 2:30pm for 2 hours"></textarea>
+      <button class="btn ghost small typed" id="parse">✍️ Fill in</button>
       <div id="parseMsg"></div>
 
       <label for="date">Date</label>
       <div class="datebox"><span id="dateTxt"></span><input type="date" id="date" aria-label="Date"></div>
       <label for="pax">People</label>
-      <div class="step"><button type="button" id="paxMinus" aria-label="Fewer people">−</button><input type="number" id="pax" min="1" max="20" value="2" inputmode="numeric"><button type="button" id="paxPlus" aria-label="More people">+</button></div>
+      <div class="step"><button type="button" id="paxMinus" aria-label="Fewer people">−</button><input type="number" id="pax" min="1" max="40" value="2" inputmode="numeric"><button type="button" id="paxPlus" aria-label="More people">+</button></div>
       <div class="row">
         <div><label for="start">Start</label><select id="start"></select></div>
         <div><label for="dur">How long</label><select id="dur"></select></div>
@@ -246,15 +255,15 @@ function describe(p) {
 /* ---------- speech ---------- */
 function setupMic() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { $('mic').onclick = () => { $('said').focus(); }; $('micHint').textContent = 'Voice isn\'t available in this browser: tap the box and use your keyboard\'s 🎤 instead.'; return; }
+  if (!SR) { $('micLbl').textContent = 'Speak using your keyboard’s 🎤'; $('mic').onclick = () => { $('said').focus(); }; $('micHint').textContent = 'Tap the box below, then the 🎤 on your keyboard.'; return; }
   let rec = null;
   $('mic').onclick = () => {
     if (rec) { rec.stop(); return; }
     rec = new SR(); rec.lang = 'en-SG'; rec.interimResults = true; rec.maxAlternatives = 1;
-    $('mic').classList.add('on'); $('micHint').textContent = 'Listening… tap 🎤 again to stop.';
+    $('mic').classList.add('on'); $('micLbl').textContent = 'Listening… tap to stop';
     rec.onresult = e => { $('said').value = [...e.results].map(r => r[0].transcript).join(' '); grow(); };
     rec.onerror = e => { $('micHint').textContent = e.error === 'not-allowed' ? 'Microphone blocked: allow it in your browser settings, or type instead.' : 'Didn\'t catch that. Try again or type.'; };
-    rec.onend = () => { $('mic').classList.remove('on'); rec = null; if ($('said').value.trim()) { $('micHint').textContent = 'Tap 🎤 to try again, or edit below.'; applyParsed(parseRequest($('said').value, sgToday())); } };
+    rec.onend = () => { $('mic').classList.remove('on'); $('micLbl').textContent = 'Tap and say what you need'; rec = null; if ($('said').value.trim()) { $('micHint').textContent = 'Tap the orange button to say it again, or edit the text.'; applyParsed(parseRequest($('said').value, sgToday())); } };
     rec.start();
   };
 }
@@ -269,7 +278,7 @@ const ERR = {
   date: 'Please pick a valid date.', time: 'Rooms are only bookable 9am–5pm.', past: 'That time has already passed.', weekend: 'Rooms are for weekdays only.',
   room_taken: 'That room was just taken. Please search again.', no_whole: 'No single room is free for the whole time.', no_rooms: 'No rooms free.',
   accounts_full: 'All three accounts have used their 6 hours for that week.', cancel_failed: 'SMARTRoom didn\'t accept the cancellation. Try again.',
-  not_found: 'Booking not found.', server: 'Something went wrong on the booking server.'
+  not_found: 'Booking not found.', server: 'Something went wrong on the booking server.', combo_failed: 'One of the rooms was taken at the last moment, so the other was released too. Please search again.', book_failed: 'SMARTRoom didn\'t accept the booking.'
 };
 const errText = r => (ERR[r.error] || r.error || 'Unknown error') + (r.detail ? ' (' + r.detail + ')' : '');
 
@@ -307,42 +316,78 @@ function doFind() {
   api('options', req()).then(r => { renderOptions(r); }).catch(() => { resetGo(); $('chooseBody').innerHTML = '<div class="err">Couldn\'t reach the booking server.</div>'; });
 }
 function renderOptions(r) {
-  S.opt = r; S.split = false;
+  S.opt = r;
   if (!r.ok) { resetGo(); $('chooseBody').innerHTML = `<div class="err">${esc(errText(r))}</div>${(r.notes || []).map(n => `<div class="note">${esc(n)}</div>`).join('')}`; return; }
   const span = fmtH(r.hours[0]) + '–' + fmtH(r.hours[r.hours.length - 1] + 1);
   $('chooseTitle').textContent = niceDate(r.date) + ' · ' + span + ' · ' + r.pax + (r.pax === 1 ? ' person' : ' people');
-  $('chooseNotes').innerHTML = r.notes.map(n => `<div class="note">ℹ️ ${esc(n)}</div>`).join('');
+  $('chooseNotes').innerHTML = r.notes.map(n => `<div class="note">ℹ️ ${esc(n)}</div>`).join('') +
+    (r.queued ? `<div class="note">📅 This date opens for booking on <b>${esc(niceDate(r.opensOn))} at 12am</b>. I'll book it automatically then and email you the result.</div>` : '');
+  S.choice = r.def; S.rooms = r.groups ? r.groups.suggest.slice() : [];
+  if (S.choice !== 'room') S.pick = '';
   let html = '';
-  if (r.queued) {
-    html = `<div class="note">📅 This date opens for booking on <b>${esc(niceDate(r.opensOn))} at 12am</b>. I'll book it automatically then and email you the result.</div>` + roomGrid(r.rooms, true);
-  } else if (r.whole && r.whole.length) {
-    if (S.pick && !r.whole.some(x => x.name === S.pick)) html += `<div class="note">${esc(S.pick)} isn't free for the whole time, so it's not listed.</div>`;
-    html += roomGrid(r.whole, false);
-  } else if (r.split) {
-    S.split = true;
-    html = `<div class="note">No single room is free for the whole ${esc(span)}. Suggested split:</div><ul class="list">` +
-      r.split.map(x => `<li><span>${fmtH(x.hour)}–${fmtH(x.hour + 1)}</span><b>${esc(x.room.name)}</b><span class="muted">${x.room.seats} pax</span></li>`).join('') + '</ul>';
-  } else {
-    html = `<div class="err">No room for ${r.pax} people is free at ${fmtH(r.gapHour)}. Try another time or date.</div>`;
+  if (r.singles.length) {
+    if (S.pick && !r.singles.some(x => x.name === S.pick)) html += `<div class="note">${esc(S.pick)} isn't free for the whole time (or is too small), so it's not listed.</div>`;
+    html += roomGrid(r.singles, r.queued);
   }
+  if (r.combo) html += `<button class="combo" data-choice="combo"><span><b>🔗 Temasek + Sentosa</b><br><small>Side by side, booked together</small></span><b>${r.combo.seats} pax</b></button>`;
+  if (r.groups) {
+    html += `<div class="note">${r.combo ? 'Or split' : r.pax > 16 ? 'More than 16 people, so split' : 'Temasek + Sentosa aren\'t both free, so split'} into smaller groups. Tick the rooms you want:</div>` +
+      '<ul class="ticks">' + r.groups.free.map(x => `<li><input type="checkbox" id="t_${esc(x.name)}" data-tick="${esc(x.name)}"${S.rooms.indexOf(x.name) >= 0 ? ' checked' : ''}><label for="t_${esc(x.name)}">${esc(x.name)}</label><span class="muted">${x.seats} pax</span></li>`).join('') +
+      '</ul><div class="seatsum" id="seatSum"></div>';
+  }
+  if (r.split) html += `<div class="note">No single room is free for the whole ${esc(span)}. Suggested:</div><ul class="list">` +
+      r.split.map(x => `<li><span>${fmtH(x.hour)}–${fmtH(x.hour + 1)}</span><b>${esc(x.room.name)}</b><span class="muted">${x.room.seats} pax</span></li>`).join('') + '</ul>';
+  if (!r.def) html += `<div class="err">${r.gapHour ? `No room for ${r.pax} people is free at ${fmtH(r.gapHour)}.` : 'No rooms are free for that time.'} Try another time or date.</div>`;
   $('chooseBody').innerHTML = html;
-  $('chooseBody').querySelectorAll('[data-room]').forEach(el => el.onclick = () => { S.pick = el.dataset.room; renderPicks(); });
-  renderPicks();
-  const a = r.accounts, n = r.hours.length;
-  if (a.short) $('acctLine').innerHTML = `<div class="err">Only ${n - a.short} of ${n} hours can be booked: the accounts have used their 6 hours for that week.</div>`;
-  else $('acctLine').innerHTML = '<div class="acct">Will book under ' + a.use.map(u => `<b>${esc(u.label)}'s account</b> (${u.hours}h; ${u.left}h left that week after this)`).join(' + ') + '</div>';
-  const can = !a.short && (r.queued || (r.whole && r.whole.length) || r.split);
-  if (can) { S.mode = 'book'; $('go').disabled = false; $('go').innerHTML = r.queued ? '📅 Queue this booking' : S.split ? '✅ Book this split' : '✅ Book it'; }
-  else resetGo();
+  $('chooseBody').querySelectorAll('[data-room]').forEach(el => el.onclick = () => { S.choice = 'room'; S.pick = el.dataset.room; refreshPick(); });
+  $('chooseBody').querySelectorAll('[data-choice="combo"]').forEach(el => el.onclick = () => { S.choice = 'combo'; refreshPick(); });
+  $('chooseBody').querySelectorAll('[data-tick]').forEach(el => el.onchange = () => {
+    S.rooms = [...$('chooseBody').querySelectorAll('[data-tick]:checked')].map(x => x.dataset.tick); S.choice = 'rooms'; refreshPick(); });
+  refreshPick();
 }
-function roomGrid(list, queued) {
-  return `<div class="rooms"><button class="room any" data-room=""><b>✨ Any suitable room</b><small>${queued ? 'picked at 12am' : 'smallest that fits'}</small></button>` +
-    list.map(x => `<button class="room" data-room="${esc(x.name)}"><b>${esc(x.name)}</b><small>${x.seats} pax</small></button>`).join('') + '</div>';
+/** Same rule as the server: one account per room for the whole meeting, a different account per room where possible. */
+function assignAccounts(segs, order, left) {
+  left = Object.assign({}, left); const plan = [], used = []; let short = 0;
+  segs.forEach(sg => { const n = sg.hours.length;
+    const k = order.find(a => used.indexOf(a) < 0 && left[a] >= n) || order.find(a => left[a] >= n);
+    if (k) { plan.push({ room: sg.room, acct: k, hours: sg.hours.slice() }); left[k] -= n; used.push(k); return; }
+    let i = 0; order.forEach(a => { if (i < n && left[a] > 0) { const t = Math.min(left[a], n - i); plan.push({ room: sg.room, acct: a, hours: sg.hours.slice(i, i + t) }); left[a] -= t; i += t; used.push(a); } });
+    if (i < n) { short += n - i; plan.push({ room: sg.room, acct: null, hours: sg.hours.slice(i) }); } });
+  return { plan, short, left };
+}
+const LABEL = { edmund: 'Edmund', shayne: 'Shayne', zachary: 'Zachary' };
+function currentSegs() {
+  const r = S.opt, H = r.hours;
+  if (S.choice === 'room') { const p = S.pick ? r.singles.find(x => x.name === S.pick) : r.singles[0]; return p ? [{ room: p, hours: H }] : []; }
+  if (S.choice === 'combo') return r.combo ? r.combo.rooms.map(x => ({ room: x, hours: H })) : [];
+  if (S.choice === 'rooms') return S.rooms.map(n => r.groups.free.find(x => x.name === n)).filter(Boolean).map(x => ({ room: x, hours: H }));
+  if (S.choice === 'split') { const out = []; r.split.forEach(x => { const l = out[out.length - 1]; if (l && l.room.name === x.room.name) l.hours = l.hours.concat(x.hour); else out.push({ room: x.room, hours: [x.hour] }); }); return out; }
+  return [];
+}
+function refreshPick() {
+  const r = S.opt;
+  $('chooseBody').querySelectorAll('[data-room]').forEach(el => el.classList.toggle('on', S.choice === 'room' && el.dataset.room === (S.pick || '')));
+  $('chooseBody').querySelectorAll('[data-choice="combo"]').forEach(el => el.classList.toggle('on', S.choice === 'combo'));
+  if (S.choice !== 'rooms') $('chooseBody').querySelectorAll('[data-tick]').forEach(el => { el.checked = false; });
+  const segs = currentSegs();
+  if ($('seatSum')) { const seats = S.choice === 'rooms' ? segs.reduce((n, x) => n + x.room.seats, 0) : 0;
+    $('seatSum').textContent = S.choice === 'rooms' ? `Seats ticked: ${seats} for ${r.pax} people${seats >= r.pax ? ' ✓' : ' (not enough yet)'}` : '';
+    $('seatSum').classList.toggle('short', S.choice === 'rooms' && seats < r.pax); }
+  if (!segs.length) { $('acctLine').innerHTML = ''; resetGo(); return; }
+  const a = assignAccounts(segs, r.accounts.order, r.accounts.left);
+  const lines = a.plan.map(p => `<li>${fmtH(p.hours[0])}–${fmtH(p.hours[p.hours.length - 1] + 1)} · <b>${esc(p.room.name)}</b> → ${p.acct ? `<b>${LABEL[p.acct]}'s account</b>` : '<b style="color:var(--bad)">no account has hours left</b>'}</li>`).join('');
+  const leftTxt = r.accounts.order.map(k => `${LABEL[k]} ${a.left[k]}h`).join(' · ');
+  $('acctLine').innerHTML = a.short
+    ? `<div class="err">Not enough hours left this week across the 3 accounts (${a.short} room-hour${a.short > 1 ? 's' : ''} short).<ul class="plan">${lines}</ul></div>`
+    : `<div class="acct">Will book:<ul class="plan">${lines}</ul><small class="muted">Hours left that week after this: ${leftTxt}</small></div>`;
+  if (a.short || (S.choice === 'rooms' && segs.reduce((n, x) => n + x.room.seats, 0) < 1)) { resetGo(); $('go').disabled = !!a.short; return; }
+  S.mode = 'book'; $('go').disabled = false;
+  $('go').innerHTML = r.queued ? '📅 Queue this booking' : segs.length > 1 && S.choice !== 'split' ? `✅ Book ${segs.length} rooms` : S.choice === 'split' ? '✅ Book this split' : '✅ Book it';
 }
 function renderPicks() { $('chooseBody').querySelectorAll('[data-room]').forEach(el => el.classList.toggle('on', el.dataset.room === (S.pick || ''))); }
 function doBook() {
   const b = $('go'); busy(b, true, 'Booking…'); $('bookMsg').innerHTML = '';
-  api('book', Object.assign(req(), { room: S.split ? '' : S.pick, split: !!S.split })).then(r => {
+  api('book', Object.assign(req(), { choice: S.choice, room: S.choice === 'room' ? S.pick : '', rooms: S.choice === 'rooms' ? S.rooms : [] })).then(r => {
     S.mode = 'done'; b.disabled = false; b.innerHTML = '➕ Book another';
     if (!r.ok) { $('bookMsg').innerHTML = `<div class="err">${esc(errText(r))}</div>`; if (r.results) showResults(r); resetGo(); return; }
     if (r.queued) { $('bookMsg').innerHTML = `<div class="okmsg">📅 Queued. I'll book it on ${esc(niceDate(r.opensOn))} at 12am and email you.</div>`; }
@@ -351,16 +396,18 @@ function doBook() {
   }).catch(() => { resetGo(); $('bookMsg').innerHTML = '<div class="err">Couldn\'t reach the booking server. Check My bookings before trying again.</div>'; });
 }
 function showResults(r) {
-  const ok = r.results.filter(x => x.ok), bad = r.results.filter(x => !x.ok);
-  $('bookMsg').innerHTML = (ok.length ? `<div class="okmsg">✅ Booked ${esc(niceDate(r.date))}:<br>` + ok.map(x => `${fmtH(x.hour)}–${fmtH(x.hour + 1)} · <b>${esc(x.room)}</b> · under <b>${esc(x.label)}'s account</b>`).join('<br>') + '</div>' : '') +
-    (bad.length ? `<div class="err">Not booked:<br>` + bad.map(x => `${fmtH(x.hour)}–${fmtH(x.hour + 1)} ${esc(x.room)}: ${esc(x.msg)}`).join('<br>') + '</div>' : '');
+  const merge = list => { const out = []; list.forEach(x => { const l = out[out.length - 1];
+    if (l && l.room === x.room && l.label === x.label && l.to === x.hour && l.msg === x.msg) l.to = x.hour + 1; else out.push({ room: x.room, label: x.label, from: x.hour, to: x.hour + 1, msg: x.msg }); }); return out; };
+  const ok = merge(r.results.filter(x => x.ok)), bad = merge(r.results.filter(x => !x.ok));
+  $('bookMsg').innerHTML = (ok.length ? `<div class="okmsg">✅ Booked ${esc(niceDate(r.date))}:<br>` + ok.map(x => `${fmtH(x.from)}–${fmtH(x.to)} · <b>${esc(x.room)}</b> · under <b>${esc(x.label)}'s account</b>`).join('<br>') + '<br><small>A confirmation email is on its way.</small></div>' : '') +
+    (bad.length ? `<div class="err">${r.rolledBack ? 'One room was taken at the last moment, so nothing was kept:' : 'Not booked:'}<br>` + bad.map(x => `${fmtH(x.from)}–${fmtH(x.to)} ${esc(x.room)}: ${esc(x.msg)}`).join('<br>') + '</div>' : '');
 }
 
 /* ---------- my bookings ---------- */
 function loadMine() {
   api('mine').then(r => {
     if (!r.ok) { $('mine').innerHTML = `<div class="err">${esc(errText(r))}</div>`; return; }
-    const rows = r.bookings.map(b => `<li><span><b>${esc(niceDate(b.date))} ${fmtH(b.hour)}–${fmtH(b.hour + 1)}</b><br><span class="muted">${esc(b.room)} · under ${esc(b.label)}'s account · ${esc(b.subject)}</span></span><button class="btn ghost small" data-cancel="${esc(b.ref)}">Cancel</button></li>`)
+    const rows = r.bookings.map(b => `<li><span><b>${esc(niceDate(b.date))} ${fmtH(b.from)}–${fmtH(b.to)}</b><br><span class="muted">${esc(b.rooms.join(' + '))} · under ${esc(b.labels.join(' + '))}'s account${b.labels.length > 1 ? 's' : ''} · ${esc(b.subject)}</span></span><button class="btn ghost small" data-cancel="${esc(b.ref)}">Cancel</button></li>`)
       .concat(r.queued.map(q => `<li><span><b>${esc(niceDate(q.date))} ${fmtT(q.start)}</b> <span class="muted">(queued)</span><br><span class="muted">Books on ${esc(niceDate(q.opensOn))} 12am · ${q.pax} pax${q.room ? ' · ' + esc(q.room) : ''}</span></span><button class="btn ghost small" data-cancel="${esc(q.ref)}">Cancel</button></li>`));
     $('mine').innerHTML = rows.length ? `<ul class="list">${rows.join('')}</ul>` : '<p class="muted">Nothing booked through this page yet.</p>';
     $('mine').querySelectorAll('[data-cancel]').forEach(btn => btn.onclick = () => {
@@ -377,7 +424,7 @@ const grow = () => { const t = $('said'); t.style.height = 'auto'; t.style.heigh
 $('said').addEventListener('input', () => { grow(); $('parse').classList.toggle('show', !!$('said').value.trim()); });
 $('said').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); applyParsed(parseRequest($('said').value, sgToday())); $('said').blur(); } });
 $('paxMinus').onclick = () => { $('pax').value = Math.max(1, (Number($('pax').value) || 1) - 1); resetGo(); };
-$('paxPlus').onclick = () => { $('pax').value = Math.min(20, (Number($('pax').value) || 1) + 1); resetGo(); };
+$('paxPlus').onclick = () => { $('pax').value = Math.min(40, (Number($('pax').value) || 1) + 1); resetGo(); };
 $('date').addEventListener('change', () => { showDate(); resetGo(); });
 ['start', 'dur', 'pax', 'acct', 'subject'].forEach(id => $(id).addEventListener('change', () => { moreSum(); resetGo(); }));
 $('subject').addEventListener('input', moreSum);
