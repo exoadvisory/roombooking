@@ -169,14 +169,14 @@ function guardPast() {
   const today = sgToday(); let note = '';
   $('date').min = today;
   if (!$('date').value || $('date').value < today) { $('date').value = nextWeekday(today); note = 'That date has passed, so I moved it to ' + niceDate($('date').value) + '.'; }
-  const isToday = $('date').value === today, cut = sgNowMin();                 // start times before now are greyed out
-  [...$('start').options].forEach(o => { const [h, m] = o.value.split(':').map(Number); o.disabled = isToday && h * 60 + m < cut; });
+  const isToday = $('date').value === today, cut = sgNowMin();
+  [...$('start').options].forEach(o => { const h = Number(o.value.split(':')[0]); o.disabled = isToday && h * 60 < cut; });   // bookings start on the hour: that hour must not have begun
   if (isToday && [...$('start').options].every(o => o.disabled)) {
     $('date').value = nextWeekday(addDays(today, 1)); [...$('start').options].forEach(o => { o.disabled = false; });
-    note = 'Rooms are only bookable until 5pm, so I moved it to ' + niceDate($('date').value) + '.';
+    note = 'No more full-hour slots today (rooms close at 5pm), so I moved it to ' + niceDate($('date').value) + '.';
   } else if ($('start').selectedOptions[0] && $('start').selectedOptions[0].disabled) {
     const first = [...$('start').options].find(o => !o.disabled); $('start').value = first.value;
-    note = note || 'That time has passed, so I moved the start to ' + fmtT(first.value) + '.';
+    note = note || 'Bookings start on the hour and that hour has begun, so the earliest start is ' + fmtT(first.value) + '.';
   }
   showDate();
   return note;
