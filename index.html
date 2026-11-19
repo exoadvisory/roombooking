@@ -82,6 +82,7 @@ textarea#said{min-height:84px}
 .ticks label{margin:0;flex:1;color:var(--ink);font-size:15px}
 .seatsum{margin-top:8px;font-weight:600}.seatsum.short{color:var(--bad)}
 .plan{list-style:none;margin:6px 0 0;padding:0}.plan li{font-size:14px;padding:2px 0}
+.wt{display:inline-block;background:#e8eef4;color:var(--ink);border-radius:999px;padding:2px 8px;font-size:12px;font-weight:600;margin-bottom:3px}
 .acct{background:#fdf3e7;border-radius:10px;padding:8px 10px}
 </style>
 </head>
@@ -429,7 +430,7 @@ function showResults(r) {
 function loadMine() {
   api('mine').then(r => {
     if (!r.ok) { $('mine').innerHTML = `<div class="err">${esc(errText(r))}</div>`; return; }
-    const rows = r.bookings.map(b => `<li><span><b>${esc(niceDate(b.date))} ${fmtH(b.from)}–${fmtH(b.to)}</b><br><span class="muted">${esc(b.rooms.join(' + '))} · under ${esc(b.labels.join(' + '))}'s account${b.labels.length > 1 ? 's' : ''} · ${esc(b.subject)}</span></span><button class="btn ghost small" data-cancel="${esc(b.ref)}">Cancel</button></li>`)
+    const rows = r.bookings.map(b => `<li><span>${b.weekly ? '<span class="wt">🔁 EXO Work Together Thursday</span><br>' : ''}<b>${esc(niceDate(b.date))} ${fmtH(b.from)}–${fmtH(b.to)}</b><br><span class="muted">${esc(b.rooms.join(' + '))} · under ${esc(b.labels.join(' + '))}'s account${b.labels.length > 1 ? 's' : ''}${b.weekly ? '' : ' · ' + esc(b.subject)}</span></span><button class="btn ghost small" data-cancel="${esc(b.ref)}">Cancel</button></li>`)
       .concat(r.queued.map(q => `<li><span><b>${esc(niceDate(q.date))} ${fmtT(q.start)}</b> <span class="muted">(queued)</span><br><span class="muted">Books on ${esc(niceDate(q.opensOn))} 12am · ${q.pax} pax${q.room ? ' · ' + esc(q.room) : ''}</span></span><button class="btn ghost small" data-cancel="${esc(q.ref)}">Cancel</button></li>`));
     $('mine').innerHTML = rows.length ? `<ul class="list">${rows.join('')}</ul>` : '<p class="muted">Nothing booked through this page yet.</p>';
     $('mine').querySelectorAll('[data-cancel]').forEach(btn => btn.onclick = () => {
