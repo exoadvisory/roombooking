@@ -362,7 +362,8 @@ function renderOptions(r) {
   }
   if (r.combo) html += `<button class="combo" data-choice="combo"><span><b>🔗 Temasek + Sentosa</b><br><small>Side by side, booked together</small></span><b>${r.combo.seats} pax</b></button>`;
   if (r.groups) {
-    html += `<div class="note">${r.combo ? 'Or split' : r.pax > 16 ? 'More than 16 people, so split' : 'Temasek + Sentosa aren\'t both free, so split'} into smaller groups. Tick the rooms you want:</div>` +
+    const why = r.combo ? 'Or split' : r.pax > 16 ? 'More than 16 people, so split' : (r.notes || []).some(n => /Reserved for EXO/.test(n)) ? 'Temasek and Sentosa are reserved, so split' : 'Temasek + Sentosa aren\'t both free, so split';
+    html += `<div class="note">${why} into smaller groups. Tick the rooms you want:</div>` +
       '<ul class="ticks">' + r.groups.free.map(x => `<li><input type="checkbox" id="t_${esc(x.name)}" data-tick="${esc(x.name)}"${S.rooms.indexOf(x.name) >= 0 ? ' checked' : ''}><label for="t_${esc(x.name)}">${esc(x.name)}</label><span class="muted">${x.seats} pax</span></li>`).join('') +
       '</ul><div class="seatsum" id="seatSum"></div>';
   }
@@ -414,6 +415,10 @@ function refreshPick() {
   if (a.short || (S.choice === 'rooms' && segs.reduce((n, x) => n + x.room.seats, 0) < 1)) { resetGo(); $('go').disabled = !!a.short; return; }
   S.mode = 'book'; $('go').disabled = false;
   $('go').innerHTML = r.queued ? '📅 Queue this booking' : segs.length > 1 && S.choice !== 'split' ? `✅ Book ${segs.length} rooms` : S.choice === 'split' ? '✅ Book this split' : '✅ Book it';
+}
+function roomGrid(list, queued) {
+  return `<div class="rooms"><button class="room any" data-room=""><b>✨ Any suitable room</b><small>${queued ? 'picked at 12am' : 'smallest that fits'}</small></button>` +
+    list.map(x => `<button class="room" data-room="${esc(x.name)}"><b>${esc(x.name)}</b><small>${x.seats} pax</small></button>`).join('') + '</div>';
 }
 function renderPicks() { $('chooseBody').querySelectorAll('[data-room]').forEach(el => el.classList.toggle('on', el.dataset.room === (S.pick || ''))); }
 function doBook() {
