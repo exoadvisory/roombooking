@@ -190,7 +190,9 @@ function moreSum() { const a = $('acct').value; $('moreSum').textContent = (a ? 
 const ROOMS = ['Canning', 'Changi', 'Esplanade', 'Helix', 'Istana', 'Keppel', 'Maju', 'Padang', 'Rochor', 'Sentosa', 'Temasek', 'Victoria'];
 const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-const NUMW = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, a: 1, an: 1, half: 0.5 };
+const NUMW = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15,
+  sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20, thirty: 30, forty: 40, a: 1, an: 1, half: 0.5, couple: 2 };
+const NW = 'one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty';
 function num(w) { w = String(w).toLowerCase(); return NUMW[w] !== undefined ? NUMW[w] : Number(w); }
 function parseRequest(text, today) {
   const t = (' ' + String(text).toLowerCase().replace(/[’]/g, "'").replace(/(\d)\s*\.\s*(\d{2})/g, '$1:$2') + ' ')
@@ -242,7 +244,10 @@ function parseRequest(text, today) {
     if (out.duration) got.push('length');
   }
   // ----- people
-  if ((m = t.match(/\b(\d+|two|three|four|five|six|seven|eight|nine|ten)\s*(?:pax|people|persons?|ppl|of us|guests?)\b/)) || (m = t.match(/\bfor\s+(\d+)(?!\s*(?:pm|am|p\.m|a\.m|hours?|hrs?|h\b|min|mins|minutes)|[:\d])\b/))) {
+  const notTime = '(?!\\s*(?:pm|am|p\\.m|a\\.m|hours?|hrs?|h\\b|min|mins|minutes|o\'?\\s*clock)|[:\\d])';
+  if ((m = t.match(new RegExp('\\b(\\d+|' + NW + ')\\s*(?:pax|people|persons?|ppl|of us|guests?|pple|peoples)\\b'))) ||
+      (m = t.match(new RegExp('\\b(?:room|rooms|space|table)\\s+for\\s+(?:a\\s+)?(\\d+|' + NW + ')\\b' + notTime))) ||
+      (m = t.match(new RegExp('\\bfor\\s+(\\d+|' + NW + ')\\b' + notTime)))) {
     out.pax = num(m[1]); got.push('people');
   } else if ((m = t.match(/\b(?:meet(?:ing)?|see|with)\s+(.+?)(?=\s+(?:on|at|from|for|tomorrow|today|tmr|this|next|coming|in|room|under|using|by|\d)\b|[.?!]|\s*$)/))) {
     const names = m[1].split(/\s*(?:,|&|\band\b|\bwith\b|\bplus\b)\s*/).map(s => s.trim())
