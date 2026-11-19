@@ -150,7 +150,7 @@ const S = { tok: null, me: null, opt: null, pick: '' };
 /* ---------- time helpers ---------- */
 const pad = n => (n < 10 ? '0' : '') + n;
 const fmtH = h => (h > 12 ? h - 12 : h) + (h >= 12 ? 'pm' : 'am');
-const fmtT = t => { const [h, m] = t.split(':').map(Number); return (h > 12 ? h - 12 : h) + (m ? ':' + pad(m) : '') + (h >= 12 ? 'pm' : 'am'); };
+const fmtT = t => { const mm = String(t || '').match(/(\d{1,2}):(\d{2})/); if (!mm) return String(t || ''); const h = Number(mm[1]), m = Number(mm[2]); return (h > 12 ? h - 12 : h) + (m ? ':' + pad(m) : '') + (h >= 12 ? 'pm' : 'am'); };
 function sgToday() { return new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10); }
 function addDays(ymd, n) { const d = new Date(ymd + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
 function dow(ymd) { return new Date(ymd + 'T00:00:00Z').getUTCDay(); }
