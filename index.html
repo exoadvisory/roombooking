@@ -160,8 +160,28 @@ function fillSelects() {
   const du = $('dur'); [30, 60, 90, 120, 150, 180, 240, 300, 360, 480].forEach(m => du.add(new Option(m < 60 ? m + ' min' : (m / 60) + (m === 60 ? ' hour' : ' hours'), m)));
   du.value = '60';
   let d = addDays(sgToday(), 1); while (dow(d) === 0 || dow(d) === 6) d = addDays(d, 1);
-  $('date').value = d; $('date').min = sgToday(); showDate();
+  $('date').value = d; $('date').min = sgToday(); guardPast();
 }
+/** No past dates or times: grey out today's earlier start times; move on if today is over. Returns a note if something changed. */
+function sgNowMin() { const d = new Date(Date.now() + 8 * 3600000); return d.getUTCHours() * 60 + d.getUTCMinutes(); }
+function nextWeekday(d) { while (dow(d) === 0 || dow(d) === 6) d = addDays(d, 1); return d; }
+function guardPast() {
+  const today = sgToday(); let note = '';
+  $('date').min = today;
+  if (!$('date').value || $('date').value < today) { $('date').value = nextWeekday(today); note = 'That date has passed, so I moved it to ' + niceDate($('date').value) + '.'; }
+  const isToday = $('date').value === today, cut = sgNowMin();                 // start times before now are greyed out
+  [...$('start').options].forEach(o => { const [h, m] = o.value.split(':').map(Number); o.disabled = isToday && h * 60 + m < cut; });
+  if (isToday && [...$('start').options].every(o => o.disabled)) {
+    $('date').value = nextWeekday(addDays(today, 1)); [...$('start').options].forEach(o => { o.disabled = false; });
+    note = 'Rooms are only bookable until 5pm, so I moved it to ' + niceDate($('date').value) + '.';
+  } else if ($('start').selectedOptions[0] && $('start').selectedOptions[0].disabled) {
+    const first = [...$('start').options].find(o => !o.disabled); $('start').value = first.value;
+    note = note || 'That time has passed, so I moved the start to ' + fmtT(first.value) + '.';
+  }
+  showDate();
+  return note;
+}
+function pastNote(n) { if (n) $('parseMsg').insertAdjacentHTML('beforeend', `<div class="note">⏰ ${esc(n)}</div>`); }
 function showDate() { $('dateTxt').textContent = $('date').value ? niceDate($('date').value) : 'Pick a date'; }
 function moreSum() { const a = $('acct').value; $('moreSum').textContent = (a ? a[0].toUpperCase() + a.slice(1) + "'s account" : 'Auto account') + ' · "' + ($('subject').value.trim() || 'Meeting') + '"'; }
 
@@ -241,6 +261,7 @@ function applyParsed(p) {
   S.pick = p.room || '';
   const miss = ['date', 'time', 'people'].filter(k => p.got.indexOf(k) < 0);
   $('parseMsg').innerHTML = `<div class="${miss.length ? 'note' : 'okmsg'}">I heard: ${esc(describe(p))}${miss.length ? '<br>Please check: <b>' + miss.join(', ') + '</b>.' : ''}</div>`;
+  pastNote(guardPast());
 }
 function describe(p) {
   const bits = [];
@@ -310,6 +331,7 @@ S.mode = 'find';
 function resetGo() { S.mode = 'find'; $('go').disabled = false; $('go').innerHTML = '🔍 Find rooms'; }
 $('go').onclick = () => S.mode === 'book' ? doBook() : S.mode === 'find' ? doFind() : (resetGo(), $('choose').classList.add('hidden'), window.scrollTo({ top: 0, behavior: 'smooth' }));
 function doFind() {
+  const n = guardPast(); if (n) { pastNote(n); }
   const b = $('go'); busy(b, true, 'Checking rooms…');
   $('choose').classList.remove('hidden'); $('chooseBody').innerHTML = '<p class="muted">Checking SMARTRoom (about 5–10 seconds)…</p>'; $('acctLine').innerHTML = ''; $('bookMsg').innerHTML = ''; $('chooseNotes').innerHTML = '';
   $('choose').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -425,10 +447,11 @@ $('said').addEventListener('input', () => { grow(); $('parse').classList.toggle(
 $('said').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); applyParsed(parseRequest($('said').value, sgToday())); $('said').blur(); } });
 $('paxMinus').onclick = () => { $('pax').value = Math.max(1, (Number($('pax').value) || 1) - 1); resetGo(); };
 $('paxPlus').onclick = () => { $('pax').value = Math.min(40, (Number($('pax').value) || 1) + 1); resetGo(); };
-$('date').addEventListener('change', () => { showDate(); resetGo(); });
+$('date').addEventListener('change', () => { $('parseMsg').innerHTML = ''; pastNote(guardPast()); resetGo(); });
 ['start', 'dur', 'pax', 'acct', 'subject'].forEach(id => $(id).addEventListener('change', () => { moreSum(); resetGo(); }));
 $('subject').addEventListener('input', moreSum);
 fillSelects(); setupMic(); initGis();
+setInterval(() => { if (S.mode !== 'book') guardPast(); }, 60000);
 </script>
 </body>
 </html>
