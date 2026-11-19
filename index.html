@@ -309,7 +309,7 @@ function api(action, body) {
 const ERR = {
   signin: 'Your sign-in expired. Please sign in again.', not_core: 'This Google account isn\'t on the Core Team Folder. Ask Yen Ling to add it.',
   date: 'Please pick a valid date.', time: 'Rooms are only bookable 9am–5pm.', past: 'That time has already passed.', weekend: 'Rooms are for weekdays only.',
-  room_taken: 'That room was just taken. Please search again.', no_whole: 'No single room is free for the whole time.', no_rooms: 'No rooms free.',
+  room_taken: 'That room was just taken or requested by someone else. Please search again.', no_whole: 'No single room is free for the whole time.', no_rooms: 'No rooms free.',
   accounts_full: 'All three accounts have used their 6 hours for that week.', cancel_failed: 'SMARTRoom didn\'t accept the cancellation. Try again.',
   not_found: 'Booking not found.', server: 'Something went wrong on the booking server.', combo_failed: 'One of the rooms was taken at the last moment, so the other was released too. Please search again.', book_failed: 'SMARTRoom didn\'t accept the booking.'
 };
@@ -422,7 +422,7 @@ function refreshPick() {
   $('go').innerHTML = r.queued ? '📅 Queue this booking' : segs.length > 1 && S.choice !== 'split' ? `✅ Book ${segs.length} rooms` : S.choice === 'split' ? '✅ Book this split' : '✅ Book it';
 }
 function roomGrid(list, queued) {
-  return `<div class="rooms"><button class="room any" data-room=""><b>✨ Any suitable room</b><small>${queued ? 'picked at 12am' : 'smallest that fits'}</small></button>` +
+  return `<div class="rooms"><button class="room any" data-room=""><b>✨ Any suitable room</b><small>${queued ? 'smallest that fits, held for you now' : 'smallest that fits'}</small></button>` +
     list.map(x => `<button class="room" data-room="${esc(x.name)}"><b>${esc(x.name)}</b><small>${x.seats} pax</small></button>`).join('') + '</div>';
 }
 function renderPicks() { $('chooseBody').querySelectorAll('[data-room]').forEach(el => el.classList.toggle('on', el.dataset.room === (S.pick || ''))); }
