@@ -1,0 +1,55 @@
+# Daily alarm for EXO Room Booking.
+# Starts ~22:30 SGT (GitHub's schedule can run late), waits until 23:58:30 SGT,
+# then tells the Apps Script to do the 00:00 bookings (weekly Thursday run + queued requests).
+# No SMARTRoom passwords here: only ALARM_SECRET (repo secret) and the script's /exec URL (repo variable EXEC_URL).
+name: Midnight booking alarm
+on:
+  schedule:
+    - cron: '30 14 * * *'        # 14:30 UTC = 22:30 SGT, every day
+  workflow_dispatch:
+    inputs:
+      test:
+        description: 'Connection test only (no waiting, no bookings)'
+        type: boolean
+        default: true
+permissions:
+  contents: write                 # only for the keep-alive commit below
+concurrency: { group: midnight, cancel-in-progress: false }
+jobs:
+  alarm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - name: Wait until 23:58:30 Singapore time
+        if: ${{ !inputs.test }}
+        run: |
+          now=$(date -u +%s)
+          target=$(TZ=Asia/Singapore date -d "$(TZ=Asia/Singapore date +%F) 23:58:30" +%s)
+          wait=$(( target - now ))
+          echo "Now $(TZ=Asia/Singapore date '+%F %T') SGT, waiting ${wait}s"
+          if [ "$wait" -lt -60 ]; then echo "::error::Started after midnight window, skipping"; exit 1; fi
+          if [ "$wait" -gt 0 ]; then sleep "$wait"; fi
+      - name: Run the midnight bookings
+        env:
+          EXEC_URL: ${{ vars.EXEC_URL }}
+          ALARM_SECRET: ${{ secrets.ALARM_SECRET }}
+        run: |
+          body=$(printf '{"action":"midnight","secret":"%s"}' "$ALARM_SECRET")
+          out=$(curl -sS -L --max-time 420 -H 'Content-Type: text/plain;charset=utf-8' --data "$body" "$EXEC_URL")
+          echo "$out" | sed 's/"secret":"[^"]*"//'
+          if [ "${{ inputs.test }}" = "true" ]; then
+            echo "$out" | grep -q '"too_early"' && { echo "Connection test passed: script reached, secret accepted, nothing booked."; exit 0; }
+            echo "::error::Connection test failed (forbidden = wrong ALARM_SECRET)"; exit 1
+          fi
+          echo "$out" | grep -q '"ok":true' || { echo "::error::Midnight run did not report ok"; exit 1; }
+      - name: Keep the schedule alive
+        if: ${{ !inputs.test }}
+        # GitHub pauses scheduled workflows after 60 days without commits; push a tiny heartbeat every ~45 days.
+        uses: actions/checkout@v4
+      - if: ${{ !inputs.test }}
+        run: |
+          last=$(git log -1 --format=%ct); now=$(date +%s)
+          if [ $(( (now - last) / 86400 )) -ge 45 ]; then
+            date -u > .heartbeat; git config user.name exoadvisory; git config user.email exoadvisory@users.noreply.github.com
+            git add .heartbeat; git commit -m "heartbeat"; git push
+          fi
