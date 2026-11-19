@@ -193,7 +193,10 @@ const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', '
 const NUMW = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, a: 1, an: 1, half: 0.5 };
 function num(w) { w = String(w).toLowerCase(); return NUMW[w] !== undefined ? NUMW[w] : Number(w); }
 function parseRequest(text, today) {
-  const t = ' ' + String(text).toLowerCase().replace(/[’]/g, "'").replace(/(\d)\s*\.\s*(\d{2})/g, '$1:$2') + ' ';
+  const t = (' ' + String(text).toLowerCase().replace(/[’]/g, "'").replace(/(\d)\s*\.\s*(\d{2})/g, '$1:$2') + ' ')
+    .replace(/\b(tomor+o[wrt]*|tomm?or+ow|tmrw?|tmr|tomoro)\b/g, 'tomorrow')
+    .replace(/\bhalf past (\d{1,2})\b/g, '$1:30').replace(/\bquarter past (\d{1,2})\b/g, '$1:15')
+    .replace(/\b(\d{1,2})\s*o'?\s*clock\b/g, 'at $1');
   const out = {}, got = [];
   // ----- date
   let m;
@@ -226,6 +229,7 @@ function parseRequest(text, today) {
   if (!out.start && (m = t.match(new RegExp('\\b(?:at|from|@)\\s*' + tm + '\\b'))) || !out.start && (m = t.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/))) {
     const s = toH(m[1], m[2], m[3], false); out.start = pad(Math.floor(s / 60)) + ':' + pad(s % 60); got.push('time');
   }
+  if (!out.start && (m = t.match(/\b(\d{1,2}):(\d{2})\b/))) { const s = toH(m[1], m[2], '', false); out.start = pad(Math.floor(s / 60)) + ':' + pad(s % 60); got.push('time'); }
   if (/\b(noon|lunch\s*time)\b/.test(t) && !out.start) { out.start = '12:00'; got.push('time'); }
   // ----- duration
   if (!out.duration) {
@@ -293,7 +297,9 @@ function setupMic() {
 /* ---------- server ---------- */
 function api(action, body) {
   return fetch(CFG.exec, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(Object.assign({ action, idToken: S.tok }, body || {})) }).then(r => r.json());
+    body: JSON.stringify(Object.assign({ action, idToken: S.tok }, body || {})) })
+    .catch(e => { throw new Error('network: ' + e.message); })
+    .then(r => r.text()).then(t => { try { return JSON.parse(t); } catch (e) { throw new Error('unreadable reply: ' + t.slice(0, 120)); } });
 }
 const ERR = {
   signin: 'Your sign-in expired. Please sign in again.', not_core: 'This Google account isn\'t on the Core Team Folder. Ask Yen Ling to add it.',
@@ -336,7 +342,9 @@ function doFind() {
   const b = $('go'); busy(b, true, 'Checking rooms…');
   $('choose').classList.remove('hidden'); $('chooseBody').innerHTML = '<p class="muted">Checking SMARTRoom (about 5–10 seconds)…</p>'; $('acctLine').innerHTML = ''; $('bookMsg').innerHTML = ''; $('chooseNotes').innerHTML = '';
   $('choose').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  api('options', req()).then(r => { renderOptions(r); }).catch(() => { resetGo(); $('chooseBody').innerHTML = '<div class="err">Couldn\'t reach the booking server.</div>'; });
+  api('options', req()).then(r => {
+    try { renderOptions(r); } catch (e) { resetGo(); $('chooseBody').innerHTML = `<div class="err">The page hit a problem showing the rooms: ${esc(e.message)}. Please screenshot this for Yen Ling.</div>`; }
+  }).catch(e => { resetGo(); $('chooseBody').innerHTML = `<div class="err">${/^network/.test(e.message) ? 'Couldn\'t reach the booking server. Check your connection and try again.' : 'The booking server sent an unexpected reply.'}<br><small>${esc(e.message)}</small></div>`; });
 }
 function renderOptions(r) {
   S.opt = r;
