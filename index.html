@@ -47,6 +47,30 @@ textarea{resize:vertical;min-height:52px}
 .spin{display:inline-block;width:16px;height:16px;border:2px solid #fff;border-right-color:transparent;border-radius:50%;animation:sp .8s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 .foot{text-align:center;font-size:12px;color:var(--muted);margin:18px 0 30px}
+body{padding-bottom:calc(84px + env(safe-area-inset-bottom))}
+header{padding:calc(10px + env(safe-area-inset-top)) 16px 10px}header h1{font-size:18px}
+input,select,textarea{font-size:16px;min-height:46px;-webkit-appearance:none;appearance:none}
+select{background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%2314324a' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 12px center;padding-right:32px}
+.field{position:relative}
+.datebox{position:relative;display:flex;align-items:center;min-height:46px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;font-weight:600}
+.datebox::after{content:'📅';position:absolute;right:12px}
+.datebox input{position:absolute;inset:0;width:100%;height:100%;opacity:0;min-height:0;border:0;padding:0}
+.step{display:flex;align-items:center;border:1px solid var(--line);border-radius:10px;background:#fff;min-height:46px;overflow:hidden}
+.step button{width:46px;height:46px;border:0;background:#f3ede2;font-size:22px;color:var(--ink);flex:none}
+.step input{border:0;text-align:center;font-weight:600;min-height:44px;padding:0;-moz-appearance:textfield}
+.step input::-webkit-inner-spin-button{display:none}
+details.more{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+details.more summary{font-size:14px;color:var(--muted);cursor:pointer;list-style:none}
+details.more summary::-webkit-details-marker{display:none}
+details.more summary b{color:var(--ink);font-weight:600}
+.rooms{grid-template-columns:repeat(3,1fr)!important;gap:6px!important}
+.room{padding:8px!important;border-radius:10px!important}
+.room b{font-size:14px}.room small{font-size:12px}
+.room.any{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center}
+.bar{position:fixed;left:0;right:0;bottom:0;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:rgba(246,241,232,.96);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-top:1px solid var(--line);z-index:5}
+.bar .btn{width:100%;max-width:528px;margin:0 auto;display:flex;padding:15px 18px;font-size:16px}
+.typed{display:none;margin-top:6px}.typed.show{display:block}
+.acct{background:#fdf3e7;border-radius:10px;padding:8px 10px}
 </style>
 </head>
 <body>
@@ -66,34 +90,32 @@ textarea{resize:vertical;min-height:52px}
         <button class="btn mic" id="mic" aria-label="Speak your request">🎤</button>
         <div style="flex:1">
           <textarea id="said" rows="2" placeholder="e.g. A room to meet Alex and Jacqueline tomorrow 2.30pm for 2 hours"></textarea>
-          <p class="hint" id="micHint">Tap 🎤 and speak, or type, then tap Fill in.</p>
+          <p class="hint" id="micHint">Tap 🎤 and say what you need, or type it.</p>
+          <button class="btn ghost small typed" id="parse">✍️ Fill in</button>
         </div>
       </div>
-      <div style="margin-top:8px"><button class="btn ghost small" id="parse">✍️ Fill in from this</button></div>
       <div id="parseMsg"></div>
 
-      <div class="row">
-        <div><label for="date">Date</label><input type="date" id="date"></div>
-        <div><label for="pax">People</label><input type="number" id="pax" min="1" max="20" value="2"></div>
-      </div>
+      <label for="date">Date</label>
+      <div class="datebox"><span id="dateTxt"></span><input type="date" id="date" aria-label="Date"></div>
+      <label for="pax">People</label>
+      <div class="step"><button type="button" id="paxMinus" aria-label="Fewer people">−</button><input type="number" id="pax" min="1" max="20" value="2" inputmode="numeric"><button type="button" id="paxPlus" aria-label="More people">+</button></div>
       <div class="row">
         <div><label for="start">Start</label><select id="start"></select></div>
         <div><label for="dur">How long</label><select id="dur"></select></div>
       </div>
-      <div class="row">
-        <div><label for="acct">Book under</label>
-          <select id="acct"><option value="">Auto (yours first)</option><option value="edmund">Edmund</option><option value="shayne">Shayne</option><option value="zachary">Zachary</option></select></div>
-        <div><label for="subject">Subject</label><input id="subject" value="Meeting" maxlength="60"></div>
-      </div>
-      <div style="margin-top:14px"><button class="btn" id="find">🔍 Find rooms</button></div>
+      <details class="more" id="more"><summary>More options · <b id="moreSum">Auto account · "Meeting"</b> ▾</summary>
+        <label for="acct">Book under</label>
+        <select id="acct"><option value="">Auto (yours first)</option><option value="edmund">Edmund</option><option value="shayne">Shayne</option><option value="zachary">Zachary</option></select>
+        <label for="subject">Subject</label><input id="subject" value="Meeting" maxlength="60">
+      </details>
     </section>
 
     <section class="card hidden" id="choose">
       <h2 id="chooseTitle">Pick a room</h2>
       <div id="chooseNotes"></div>
       <div id="chooseBody"></div>
-      <div id="acctLine" class="acct"></div>
-      <div style="margin-top:14px" id="bookWrap"><button class="btn" id="book">✅ Book it</button></div>
+      <div id="acctLine"></div>
       <div id="bookMsg"></div>
     </section>
 
@@ -104,6 +126,7 @@ textarea{resize:vertical;min-height:52px}
     <p class="foot" id="who"></p>
   </div>
 </main>
+<div class="bar hidden" id="bar"><button class="btn" id="go">🔍 Find rooms</button></div>
 
 <script>
 const CFG = {
@@ -128,8 +151,10 @@ function fillSelects() {
   const du = $('dur'); [30, 60, 90, 120, 150, 180, 240, 300, 360, 480].forEach(m => du.add(new Option(m < 60 ? m + ' min' : (m / 60) + (m === 60 ? ' hour' : ' hours'), m)));
   du.value = '60';
   let d = addDays(sgToday(), 1); while (dow(d) === 0 || dow(d) === 6) d = addDays(d, 1);
-  $('date').value = d; $('date').min = sgToday();
+  $('date').value = d; $('date').min = sgToday(); showDate();
 }
+function showDate() { $('dateTxt').textContent = $('date').value ? niceDate($('date').value) : 'Pick a date'; }
+function moreSum() { const a = $('acct').value; $('moreSum').textContent = (a ? a[0].toUpperCase() + a.slice(1) + "'s account" : 'Auto account') + ' · "' + ($('subject').value.trim() || 'Meeting') + '"'; }
 
 /* ---------- voice / text → fields ---------- */
 const ROOMS = ['Canning', 'Changi', 'Esplanade', 'Helix', 'Istana', 'Keppel', 'Maju', 'Padang', 'Rochor', 'Sentosa', 'Temasek', 'Victoria'];
@@ -198,11 +223,12 @@ function parseRequest(text, today) {
   return out;
 }
 function applyParsed(p) {
-  if (p.date) $('date').value = p.date;
+  if (p.date) { $('date').value = p.date; showDate(); }
   if (p.start) { const [h, mi] = p.start.split(':').map(Number); const v = pad(Math.min(16, Math.max(9, h))) + ':' + (mi >= 30 ? '30' : '00'); $('start').value = v; }
   if (p.duration) { const opts = [...$('dur').options].map(o => Number(o.value)); $('dur').value = String(opts.reduce((a, b) => Math.abs(b - p.duration) < Math.abs(a - p.duration) ? b : a)); }
   if (p.pax) $('pax').value = p.pax;
-  if (p.acct) $('acct').value = p.acct;
+  if (p.acct) { $('acct').value = p.acct; moreSum(); }
+  resetGo();
   S.pick = p.room || '';
   const miss = ['date', 'time', 'people'].filter(k => p.got.indexOf(k) < 0);
   $('parseMsg').innerHTML = `<div class="${miss.length ? 'note' : 'okmsg'}">I heard: ${esc(describe(p))}${miss.length ? '<br>Please check: <b>' + miss.join(', ') + '</b>.' : ''}</div>`;
@@ -211,7 +237,7 @@ function describe(p) {
   const bits = [];
   if (p.date) bits.push(niceDate(p.date));
   if (p.start) bits.push(fmtT(p.start) + (p.duration ? ' for ' + (p.duration % 60 ? p.duration + ' min' : p.duration / 60 + (p.duration === 60 ? ' hour' : ' hours')) : ''));
-  if (p.pax) bits.push(p.pax + ' people' + (p.paxFrom ? ' (you + ' + p.paxFrom.join(', ') + ')' : ''));
+  if (p.pax) bits.push(p.pax + ' people' + (p.paxFrom ? ' (you + ' + p.paxFrom.map(n => n.replace(/\b\w/g, c => c.toUpperCase())).join(', ') + ')' : ''));
   if (p.room) bits.push(p.room);
   if (p.acct) bits.push('under ' + p.acct[0].toUpperCase() + p.acct.slice(1));
   return bits.join(' · ') || 'nothing I could use';
@@ -226,9 +252,9 @@ function setupMic() {
     if (rec) { rec.stop(); return; }
     rec = new SR(); rec.lang = 'en-SG'; rec.interimResults = true; rec.maxAlternatives = 1;
     $('mic').classList.add('on'); $('micHint').textContent = 'Listening… tap 🎤 again to stop.';
-    rec.onresult = e => { $('said').value = [...e.results].map(r => r[0].transcript).join(' '); };
+    rec.onresult = e => { $('said').value = [...e.results].map(r => r[0].transcript).join(' '); grow(); };
     rec.onerror = e => { $('micHint').textContent = e.error === 'not-allowed' ? 'Microphone blocked: allow it in your browser settings, or type instead.' : 'Didn\'t catch that. Try again or type.'; };
-    rec.onend = () => { $('mic').classList.remove('on'); rec = null; if ($('said').value.trim()) { $('micHint').textContent = 'Got it.'; applyParsed(parseRequest($('said').value, sgToday())); } };
+    rec.onend = () => { $('mic').classList.remove('on'); rec = null; if ($('said').value.trim()) { $('micHint').textContent = 'Tap 🎤 to try again, or edit below.'; applyParsed(parseRequest($('said').value, sgToday())); } };
     rec.start();
   };
 }
@@ -253,7 +279,8 @@ function onCred(c) {
   api('me').then(r => {
     if (!r.ok) { S.tok = null; $('signinMsg').innerHTML = `<div class="err">${esc(errText(r))}</div>`; return; }
     S.me = r; try { sessionStorage.setItem('exoRoomTok', S.tok); } catch (e) {}
-    $('signin').classList.add('hidden'); $('app').classList.remove('hidden');
+    $('acct').options[0].text = r.acct ? 'Auto (yours first)' : 'Auto';
+    $('signin').classList.add('hidden'); $('app').classList.remove('hidden'); $('bar').classList.remove('hidden');
     $('who').innerHTML = `Signed in as ${esc(r.email)}${r.acct ? ' · bookings go under your account first' : ''} · <a href="#" id="out">Sign out</a>`;
     $('out').onclick = e => { e.preventDefault(); try { sessionStorage.removeItem('exoRoomTok'); } catch (x) {} location.reload(); };
     loadMine();
@@ -269,16 +296,19 @@ function initGis() {
 
 /* ---------- find / choose / book ---------- */
 function req() { return { date: $('date').value, start: $('start').value, duration: Number($('dur').value), pax: Number($('pax').value) || 1, acct: $('acct').value, subject: $('subject').value.trim() || 'Meeting' }; }
-function busy(btn, on, label) { btn.disabled = on; btn.innerHTML = on ? '<span class="spin"></span> ' + label : btn.dataset.label || btn.innerHTML; }
-$('find').onclick = () => {
-  const b = $('find'); b.dataset.label = b.dataset.label || b.innerHTML; busy(b, true, 'Checking rooms…');
+function busy(btn, on, label) { btn.disabled = on; if (on) btn.innerHTML = '<span class="spin"></span> ' + label; }
+S.mode = 'find';
+function resetGo() { S.mode = 'find'; $('go').disabled = false; $('go').innerHTML = '🔍 Find rooms'; }
+$('go').onclick = () => S.mode === 'book' ? doBook() : S.mode === 'find' ? doFind() : (resetGo(), $('choose').classList.add('hidden'), window.scrollTo({ top: 0, behavior: 'smooth' }));
+function doFind() {
+  const b = $('go'); busy(b, true, 'Checking rooms…');
   $('choose').classList.remove('hidden'); $('chooseBody').innerHTML = '<p class="muted">Checking SMARTRoom (about 5–10 seconds)…</p>'; $('acctLine').innerHTML = ''; $('bookMsg').innerHTML = ''; $('chooseNotes').innerHTML = '';
-  $('bookWrap').classList.add('hidden');
-  api('options', req()).then(r => { busy(b, false); renderOptions(r); }).catch(() => { busy(b, false); $('chooseBody').innerHTML = '<div class="err">Couldn\'t reach the booking server.</div>'; });
-};
+  $('choose').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  api('options', req()).then(r => { renderOptions(r); }).catch(() => { resetGo(); $('chooseBody').innerHTML = '<div class="err">Couldn\'t reach the booking server.</div>'; });
+}
 function renderOptions(r) {
   S.opt = r; S.split = false;
-  if (!r.ok) { $('chooseBody').innerHTML = `<div class="err">${esc(errText(r))}</div>${(r.notes || []).map(n => `<div class="note">${esc(n)}</div>`).join('')}`; return; }
+  if (!r.ok) { resetGo(); $('chooseBody').innerHTML = `<div class="err">${esc(errText(r))}</div>${(r.notes || []).map(n => `<div class="note">${esc(n)}</div>`).join('')}`; return; }
   const span = fmtH(r.hours[0]) + '–' + fmtH(r.hours[r.hours.length - 1] + 1);
   $('chooseTitle').textContent = niceDate(r.date) + ' · ' + span + ' · ' + r.pax + (r.pax === 1 ? ' person' : ' people');
   $('chooseNotes').innerHTML = r.notes.map(n => `<div class="note">ℹ️ ${esc(n)}</div>`).join('');
@@ -300,26 +330,26 @@ function renderOptions(r) {
   renderPicks();
   const a = r.accounts, n = r.hours.length;
   if (a.short) $('acctLine').innerHTML = `<div class="err">Only ${n - a.short} of ${n} hours can be booked: the accounts have used their 6 hours for that week.</div>`;
-  else $('acctLine').innerHTML = 'Will book under ' + a.use.map(u => `<b>${esc(u.label)}'s account</b> (${u.hours}h; ${u.left}h left that week after this)`).join(' + ');
+  else $('acctLine').innerHTML = '<div class="acct">Will book under ' + a.use.map(u => `<b>${esc(u.label)}'s account</b> (${u.hours}h; ${u.left}h left that week after this)`).join(' + ') + '</div>';
   const can = !a.short && (r.queued || (r.whole && r.whole.length) || r.split);
-  $('bookWrap').classList.toggle('hidden', !can);
-  $('book').textContent = r.queued ? '📅 Queue this booking' : S.split ? '✅ Book this split' : '✅ Book it';
+  if (can) { S.mode = 'book'; $('go').disabled = false; $('go').innerHTML = r.queued ? '📅 Queue this booking' : S.split ? '✅ Book this split' : '✅ Book it'; }
+  else resetGo();
 }
 function roomGrid(list, queued) {
-  return `<div class="rooms"><button class="room" data-room=""><b>✨ Any suitable room</b><small>${queued ? 'picked at 12am' : 'smallest that fits'}</small></button>` +
+  return `<div class="rooms"><button class="room any" data-room=""><b>✨ Any suitable room</b><small>${queued ? 'picked at 12am' : 'smallest that fits'}</small></button>` +
     list.map(x => `<button class="room" data-room="${esc(x.name)}"><b>${esc(x.name)}</b><small>${x.seats} pax</small></button>`).join('') + '</div>';
 }
 function renderPicks() { $('chooseBody').querySelectorAll('[data-room]').forEach(el => el.classList.toggle('on', el.dataset.room === (S.pick || ''))); }
-$('book').onclick = () => {
-  const b = $('book'); b.dataset.label = b.innerHTML; busy(b, true, 'Booking…'); $('bookMsg').innerHTML = '';
+function doBook() {
+  const b = $('go'); busy(b, true, 'Booking…'); $('bookMsg').innerHTML = '';
   api('book', Object.assign(req(), { room: S.split ? '' : S.pick, split: !!S.split })).then(r => {
-    busy(b, false);
-    if (!r.ok) { $('bookMsg').innerHTML = `<div class="err">${esc(errText(r))}</div>`; if (r.results) showResults(r); return; }
+    S.mode = 'done'; b.disabled = false; b.innerHTML = '➕ Book another';
+    if (!r.ok) { $('bookMsg').innerHTML = `<div class="err">${esc(errText(r))}</div>`; if (r.results) showResults(r); resetGo(); return; }
     if (r.queued) { $('bookMsg').innerHTML = `<div class="okmsg">📅 Queued. I'll book it on ${esc(niceDate(r.opensOn))} at 12am and email you.</div>`; }
     else showResults(r);
-    $('bookWrap').classList.add('hidden'); loadMine();
-  }).catch(() => { busy(b, false); $('bookMsg').innerHTML = '<div class="err">Couldn\'t reach the booking server. Check My bookings before trying again.</div>'; });
-};
+    $('bookMsg').scrollIntoView({ behavior: 'smooth', block: 'center' }); loadMine();
+  }).catch(() => { resetGo(); $('bookMsg').innerHTML = '<div class="err">Couldn\'t reach the booking server. Check My bookings before trying again.</div>'; });
+}
 function showResults(r) {
   const ok = r.results.filter(x => x.ok), bad = r.results.filter(x => !x.ok);
   $('bookMsg').innerHTML = (ok.length ? `<div class="okmsg">✅ Booked ${esc(niceDate(r.date))}:<br>` + ok.map(x => `${fmtH(x.hour)}–${fmtH(x.hour + 1)} · <b>${esc(x.room)}</b> · under <b>${esc(x.label)}'s account</b>`).join('<br>') + '</div>' : '') +
@@ -343,6 +373,14 @@ function loadMine() {
 function alertBox(t) { $('bookMsg').innerHTML = `<div class="err">${esc(t)}</div>`; }
 
 $('parse').onclick = () => applyParsed(parseRequest($('said').value, sgToday()));
+const grow = () => { const t = $('said'); t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight + 2, 160) + 'px'; };
+$('said').addEventListener('input', () => { grow(); $('parse').classList.toggle('show', !!$('said').value.trim()); });
+$('said').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); applyParsed(parseRequest($('said').value, sgToday())); $('said').blur(); } });
+$('paxMinus').onclick = () => { $('pax').value = Math.max(1, (Number($('pax').value) || 1) - 1); resetGo(); };
+$('paxPlus').onclick = () => { $('pax').value = Math.min(20, (Number($('pax').value) || 1) + 1); resetGo(); };
+$('date').addEventListener('change', () => { showDate(); resetGo(); });
+['start', 'dur', 'pax', 'acct', 'subject'].forEach(id => $(id).addEventListener('change', () => { moreSum(); resetGo(); }));
+$('subject').addEventListener('input', moreSum);
 fillSelects(); setupMic(); initGis();
 </script>
 </body>
