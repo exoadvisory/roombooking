@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#2f3240">
+<meta http-equiv="Cache-Control" content="no-cache">
 <meta name="apple-mobile-web-app-title" content="Room Booking">
 <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="img/icon-192.png">
@@ -483,6 +484,22 @@ $('date').addEventListener('change', () => { $('parseMsg').innerHTML = ''; pastN
 ['start', 'dur', 'pax', 'acct', 'subject'].forEach(id => $(id).addEventListener('change', () => { moreSum(); resetGo(); }));
 $('subject').addEventListener('input', moreSum);
 fillSelects(); setupMic(); initGis();
+
+/* ---------- stay up to date: reload once if a newer page is published ---------- */
+const PAGE_VER = '2026-11-23a';
+function checkVersion() {
+  if (document.querySelector('.spin')) return;
+  fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(t => {
+    const v = (t || '').trim(); if (!v || v === PAGE_VER || document.querySelector('.spin')) return;
+    let tried = ''; try { tried = sessionStorage.getItem('exoRoomVerTried') || ''; } catch (e) {}
+    if (tried === v) return;
+    try { sessionStorage.setItem('exoRoomVerTried', v); } catch (e) {}
+    location.replace(location.pathname + '?v=' + encodeURIComponent(v) + location.hash);
+  }).catch(() => {});
+}
+checkVersion();
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkVersion(); });
+window.addEventListener('pageshow', e => { if (e.persisted) checkVersion(); });
 setInterval(() => { if (S.mode !== 'book') guardPast(); }, 60000);
 </script>
 </body>
