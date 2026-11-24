@@ -200,80 +200,14 @@ function pastNote(n) { if (n) $('parseMsg').insertAdjacentHTML('beforeend', `<di
 function showDate() { $('dateTxt').textContent = $('date').value ? niceDate($('date').value) : 'Pick a date'; }
 function moreSum() { const a = $('acct').value; $('moreSum').textContent = (a ? a[0].toUpperCase() + a.slice(1) + "'s account" : 'Auto account') + ' · "' + ($('subject').value.trim() || 'Meeting') + '"'; }
 
-/* ---------- voice / text → fields ---------- */
-const ROOMS = ['Canning', 'Changi', 'Esplanade', 'Helix', 'Istana', 'Keppel', 'Maju', 'Padang', 'Rochor', 'Sentosa', 'Temasek', 'Victoria'];
-const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-const NUMW = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15,
-  sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20, thirty: 30, forty: 40, a: 1, an: 1, half: 0.5, couple: 2 };
-const NW = 'one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty';
-function num(w) { w = String(w).toLowerCase(); return NUMW[w] !== undefined ? NUMW[w] : Number(w); }
-function parseRequest(text, today) {
-  const t = (' ' + String(text).toLowerCase().replace(/[’]/g, "'").replace(/(\d)\s*\.\s*(\d{2})/g, '$1:$2') + ' ')
-    .replace(/\b(tomor+o[wrt]*|tomm?or+ow|tmrw?|tmr|tomoro)\b/g, 'tomorrow')
-    .replace(/\bhalf past (\d{1,2})\b/g, '$1:30').replace(/\bquarter past (\d{1,2})\b/g, '$1:15')
-    .replace(/\b(\d{1,2})\s*o'?\s*clock\b/g, 'at $1');
-  const out = {}, got = [];
-  // ----- date
-  let m;
-  if (/\bday after tomorrow\b/.test(t)) out.date = addDays(today, 2);
-  else if (/\btomorrow\b|\btmr\b|\btmrw\b/.test(t)) out.date = addDays(today, 1);
-  else if (/\btoday\b|\btonight\b/.test(t)) out.date = today;
-  else if ((m = t.match(/\b(?:(this|next|coming)\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday|sun|mon|tue|tues|wed|thu|thur|thurs|fri|sat)\b/))) {
-    const want = DAYS.findIndex(d => d.startsWith(m[2].slice(0, 3)));
-    let d = addDays(today, 1); while (dow(d) !== want) d = addDays(d, 1);
-    if (m[1] === 'next' && dow(today) !== 0 && want > dow(today) && (new Date(d) - new Date(today)) / 864e5 < 7) d = addDays(d, 7);
-    out.date = d;
-  } else if ((m = t.match(/\b(\d{1,2})(?:st|nd|rd|th)?\s*(?:of\s+)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b/)) ||
-             (m = t.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?\b/))) {
-    const dd = Number(/\d/.test(m[1]) ? m[1] : m[2]), mm = MONTHS.indexOf((/\d/.test(m[1]) ? m[2] : m[1]).slice(0, 3)) + 1;
-    let y = Number(today.slice(0, 4)), d = y + '-' + pad(mm) + '-' + pad(dd); if (d < today) d = (y + 1) + '-' + pad(mm) + '-' + pad(dd);
-    out.date = d;
-  } else if ((m = t.match(/\b(\d{1,2})\/(\d{1,2})\b/))) {
-    let y = Number(today.slice(0, 4)), d = y + '-' + pad(Number(m[2])) + '-' + pad(Number(m[1])); if (d < today) d = (y + 1) + d.slice(4);
-    out.date = d;
-  }
-  if (out.date) got.push('date');
-  // ----- time (range first: "2 to 4pm", "from 2:30 till 4", "2-4pm")
-  const tm = '(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm|a\\.m\\.|p\\.m\\.)?';
-  const toH = (h, mi, ap, hintPm) => { h = Number(h); mi = Number(mi || 0); ap = (ap || '').replace(/\./g, '');
-    if (ap === 'pm' && h < 12) h += 12; if (ap === 'am' && h === 12) h = 0; if (!ap && hintPm && h < 8) h += 12; if (!ap && h >= 1 && h <= 6) h += 12; return h * 60 + mi; };
-  if ((m = t.match(new RegExp('\\b(?:from\\s+)?' + tm + '\\s*(?:-|–|to|till|until|til)\\s*' + tm + '\\b')))) {
-    const endPm = /p/.test(m[6] || ''), s = toH(m[1], m[2], m[3] || (endPm && Number(m[1]) <= Number(m[4]) ? 'pm' : ''), endPm), e = toH(m[4], m[5], m[6], false);
-    if (e > s) { out.start = pad(Math.floor(s / 60)) + ':' + pad(s % 60); out.duration = e - s; got.push('time'); }
-  }
-  if (!out.start && (m = t.match(new RegExp('\\b(?:at|from|@)\\s*' + tm + '\\b'))) || !out.start && (m = t.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/))) {
-    const s = toH(m[1], m[2], m[3], false); out.start = pad(Math.floor(s / 60)) + ':' + pad(s % 60); got.push('time');
-  }
-  if (!out.start && (m = t.match(/\b(\d{1,2}):(\d{2})\b/))) { const s = toH(m[1], m[2], '', false); out.start = pad(Math.floor(s / 60)) + ':' + pad(s % 60); got.push('time'); }
-  if (/\b(noon|lunch\s*time)\b/.test(t) && !out.start) { out.start = '12:00'; got.push('time'); }
-  // ----- duration
-  if (!out.duration) {
-    if (/\bhalf an? hour\b/.test(t)) out.duration = 30;
-    else if ((m = t.match(/\b(\d+(?:\.\d+)?|one|two|three|four|five|six|a|an|half)\s*(?:and a half\s*)?(?:hours?|hrs?|h)\b/))) {
-      let h = num(m[1]); if (/and a half/.test(m[0])) h += 0.5; out.duration = Math.round(h * 60);
-      if ((m = t.match(/(?:hours?|hrs?)\s*(?:and\s*)?(\d+)\s*(?:min|mins|minutes)\b/))) out.duration += Number(m[1]);
-    } else if ((m = t.match(/\b(\d+)\s*(?:min|mins|minutes)\b/))) out.duration = Number(m[1]);
-    else if (/\bhalf an hour\b/.test(t)) out.duration = 30;
-    if (out.duration) got.push('length');
-  }
-  // ----- people
-  const notTime = '(?!\\s*(?:pm|am|p\\.m|a\\.m|hours?|hrs?|h\\b|min|mins|minutes|o\'?\\s*clock)|[:\\d])';
-  if ((m = t.match(new RegExp('\\b(\\d+|' + NW + ')\\s*(?:pax|people|persons?|ppl|of us|guests?|pple|peoples)\\b'))) ||
-      (m = t.match(new RegExp('\\b(?:room|rooms|space|table)\\s+for\\s+(?:a\\s+)?(\\d+|' + NW + ')\\b' + notTime))) ||
-      (m = t.match(new RegExp('\\bfor\\s+(\\d+|' + NW + ')\\b' + notTime)))) {
-    out.pax = num(m[1]); got.push('people');
-  } else if ((m = t.match(/\b(?:meet(?:ing)?|see|with)\s+(.+?)(?=\s+(?:on|at|from|for|tomorrow|today|tmr|this|next|coming|in|room|under|using|by|\d)\b|[.?!]|\s*$)/))) {
-    const names = m[1].split(/\s*(?:,|&|\band\b|\bwith\b|\bplus\b)\s*/).map(s => s.trim())
-      .filter(s => s && !/^(me|us|the team|team|my team|client|clients|them|him|her|someone|a client)$/.test(s));
-    if (names.length) { out.pax = names.length + 1; out.paxFrom = names; got.push('people'); }
-  }
-  // ----- room / account
-  const rm = ROOMS.find(r => new RegExp('\\b' + r.toLowerCase() + '\\b').test(t)); if (rm) { out.room = rm; got.push('room'); }
-  if ((m = t.match(/\b(?:under|using|with|use|on)\s+(edmund|shayne|zach|zachary)(?:'s)?\s*(?:account|acct|login)?\b/)) || (m = t.match(/\b(edmund|shayne|zach|zachary)(?:'s)?\s+(?:account|acct|login)\b/)))
-    { out.acct = m[1].startsWith('zach') ? 'zachary' : m[1]; got.push('account'); }
-  out.got = got;
-  return out;
+/* ---------- voice / text → fields (understood by the booking server) ---------- */
+function doParse() {
+  const text = $('said').value.trim(); if (!text) return;
+  $('parseMsg').innerHTML = '<p class="muted">Understanding…</p>';
+  api('parse', { text }).then(r => {
+    if (!r.ok) { $('parseMsg').innerHTML = `<div class="err">${esc(errText(r))}</div>`; return; }
+    applyParsed(r.parsed);
+  }).catch(e => { $('parseMsg').innerHTML = `<div class="err">${/^network/.test(e.message) ? 'Couldn\'t reach the booking server. Check your connection and try again.' : 'The booking server sent an unexpected reply.'}</div>`; });
 }
 function applyParsed(p) {
   if (p.date) { $('date').value = p.date; showDate(); }
@@ -308,7 +242,7 @@ function setupMic() {
     $('mic').classList.add('on'); $('micLbl').textContent = 'Listening… tap to stop';
     rec.onresult = e => { $('said').value = [...e.results].map(r => r[0].transcript).join(' '); grow(); };
     rec.onerror = e => { $('micHint').textContent = e.error === 'not-allowed' ? 'Microphone blocked: allow it in your browser settings, or type instead.' : 'Didn\'t catch that. Try again or type.'; };
-    rec.onend = () => { $('mic').classList.remove('on'); $('micLbl').textContent = 'Tap and say what you need'; rec = null; if ($('said').value.trim()) { $('micHint').textContent = 'Tap the orange button to say it again, or edit the text.'; applyParsed(parseRequest($('said').value, sgToday())); } };
+    rec.onend = () => { $('mic').classList.remove('on'); $('micLbl').textContent = 'Tap and say what you need'; rec = null; if ($('said').value.trim()) { $('micHint').textContent = 'Tap the orange button to say it again, or edit the text.'; doParse(); } };
     rec.start();
   };
 }
@@ -381,7 +315,7 @@ function renderOptions(r) {
   }
   if (r.combo) html += `<button class="combo" data-choice="combo"><span><b>🔗 Temasek + Sentosa</b><br><small>Side by side, booked together</small></span><b>${r.combo.seats} pax</b></button>`;
   if (r.groups) {
-    const why = r.combo ? 'Or split' : r.pax > 16 ? 'More than 16 people, so split' : (r.notes || []).some(n => /Reserved for EXO/.test(n)) ? 'Temasek and Sentosa are reserved, so split' : 'Temasek + Sentosa aren\'t both free, so split';
+    const why = r.groups.why || 'Split';
     html += `<div class="note">${why} into smaller groups. Tick the rooms you want:</div>` +
       '<ul class="ticks">' + r.groups.free.map(x => `<li><input type="checkbox" id="t_${esc(x.name)}" data-tick="${esc(x.name)}"${S.rooms.indexOf(x.name) >= 0 ? ' checked' : ''}><label for="t_${esc(x.name)}">${esc(x.name)}</label><span class="muted">${x.seats} pax</span></li>`).join('') +
       '</ul><div class="seatsum" id="seatSum"></div>';
@@ -396,15 +330,12 @@ function renderOptions(r) {
     S.rooms = [...$('chooseBody').querySelectorAll('[data-tick]:checked')].map(x => x.dataset.tick); S.choice = 'rooms'; refreshPick(); });
   refreshPick();
 }
-/** Same rule as the server: one account per room for the whole meeting, a different account per room where possible. */
-function assignAccounts(segs, order, left) {
-  left = Object.assign({}, left); const plan = [], used = []; let short = 0;
-  segs.forEach(sg => { const n = sg.hours.length;
-    const k = order.find(a => used.indexOf(a) < 0 && left[a] >= n) || order.find(a => left[a] >= n);
-    if (k) { plan.push({ room: sg.room, acct: k, hours: sg.hours.slice() }); left[k] -= n; used.push(k); return; }
-    let i = 0; order.forEach(a => { if (i < n && left[a] > 0) { const t = Math.min(left[a], n - i); plan.push({ room: sg.room, acct: a, hours: sg.hours.slice(i, i + t) }); left[a] -= t; i += t; used.push(a); } });
-    if (i < n) { short += n - i; plan.push({ room: sg.room, acct: null, hours: sg.hours.slice(i) }); } });
-  return { plan, short, left };
+/** Account plan for the current choice, worked out by the booking server (r.plans). */
+function planFor(segs) {
+  const P = S.opt.plans || {};
+  if (S.choice === 'split') return P.split || { plan: [], short: 0, left: {} };
+  const t = (P.byCount || {})[segs.length]; if (!t) return { plan: [], short: 0, left: {} };
+  return { plan: t.plan.map(p => ({ room: segs[p.seg].room, acct: p.acct, hours: p.hours })), short: t.short, left: t.left };
 }
 const LABEL = { edmund: 'Edmund', shayne: 'Shayne', zachary: 'Zachary' };
 function currentSegs() {
@@ -425,7 +356,7 @@ function refreshPick() {
     $('seatSum').textContent = S.choice === 'rooms' ? `Seats ticked: ${seats} for ${r.pax} people${seats >= r.pax ? ' ✓' : ' (not enough yet)'}` : '';
     $('seatSum').classList.toggle('short', S.choice === 'rooms' && seats < r.pax); }
   if (!segs.length) { $('acctLine').innerHTML = ''; resetGo(); return; }
-  const a = assignAccounts(segs, r.accounts.order, r.accounts.left);
+  const a = planFor(segs);
   const lines = a.plan.map(p => `<li>${fmtH(p.hours[0])}–${fmtH(p.hours[p.hours.length - 1] + 1)} · <b>${esc(p.room.name)}</b> → ${p.acct ? `<b>${LABEL[p.acct]}'s account</b>` : '<b style="color:var(--bad)">no account has hours left</b>'}</li>`).join('');
   const leftTxt = r.accounts.order.map(k => `${LABEL[k]} ${a.left[k]}h`).join(' · ');
   $('acctLine').innerHTML = a.short
@@ -474,10 +405,10 @@ function loadMine() {
 }
 function alertBox(t) { $('bookMsg').innerHTML = `<div class="err">${esc(t)}</div>`; }
 
-$('parse').onclick = () => applyParsed(parseRequest($('said').value, sgToday()));
+$('parse').onclick = doParse;
 const grow = () => { const t = $('said'); t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight + 2, 160) + 'px'; };
 $('said').addEventListener('input', () => { grow(); $('parse').classList.toggle('show', !!$('said').value.trim()); });
-$('said').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); applyParsed(parseRequest($('said').value, sgToday())); $('said').blur(); } });
+$('said').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doParse(); $('said').blur(); } });
 $('paxMinus').onclick = () => { $('pax').value = Math.max(1, (Number($('pax').value) || 1) - 1); resetGo(); };
 $('paxPlus').onclick = () => { $('pax').value = Math.min(40, (Number($('pax').value) || 1) + 1); resetGo(); };
 $('date').addEventListener('change', () => { $('parseMsg').innerHTML = ''; pastNote(guardPast()); resetGo(); });
@@ -486,7 +417,7 @@ $('subject').addEventListener('input', moreSum);
 fillSelects(); setupMic(); initGis();
 
 /* ---------- stay up to date: reload once if a newer page is published ---------- */
-const PAGE_VER = '2026-11-23a';
+const PAGE_VER = '2026-11-24a';
 function checkVersion() {
   if (document.querySelector('.spin')) return;
   fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(t => {
