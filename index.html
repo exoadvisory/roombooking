@@ -95,6 +95,9 @@ textarea#said{min-height:84px}
 .ticks label{margin:0;flex:1;color:var(--ink);font-size:15px}
 .seatsum{margin-top:8px;font-weight:600}.seatsum.short{color:var(--bad)}
 .plan{list-style:none;margin:6px 0 0;padding:0}.plan li{font-size:14px;padding:2px 0}
+.visf{margin-top:4px;font-size:13px}.visf summary{color:var(--muted);cursor:pointer;list-style:none}.visf summary::-webkit-details-marker{display:none}.visf summary b{color:var(--ink);font-weight:600}
+.opts{display:flex;gap:6px;margin-top:6px}.opt{border:1px solid var(--line);background:#fff;border-radius:999px;padding:5px 12px;font-size:13px;color:var(--ink);cursor:pointer}.opt.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.by{font-size:13px;color:var(--ink);font-weight:600}
 .wt{display:inline-block;background:#f3e6e2;color:var(--ink);border-radius:999px;padding:2px 8px;font-size:12px;font-weight:600;margin-bottom:3px}
 .acct{background:#fdf3e7;border-radius:10px;padding:8px 10px}
 </style>
@@ -128,10 +131,12 @@ textarea#said{min-height:84px}
         <div><label for="start">Start</label><select id="start"></select></div>
         <div><label for="dur">How long</label><select id="dur"></select></div>
       </div>
-      <details class="more" id="more"><summary>More options · <b id="moreSum">Auto account · "Meeting"</b> ▾</summary>
+      <details class="more" id="more"><summary>More options · <b id="moreSum">Auto account · "Meeting" · Only me</b> ▾</summary>
         <label for="acct">Book under</label>
         <select id="acct"><option value="">Auto (yours first)</option><option value="edmund">Edmund</option><option value="shayne">Shayne</option><option value="zachary">Zachary</option></select>
         <label for="subject">Subject</label><input id="subject" value="Meeting" maxlength="60">
+        <label for="vis">Who can see this</label>
+        <select id="vis"><option value="">Only me</option><option value="core">Core team (shows in everyone's Team bookings)</option></select>
       </details>
     </section>
 
@@ -146,6 +151,11 @@ textarea#said{min-height:84px}
     <section class="card">
       <h2>My bookings</h2>
       <div id="mine"><p class="muted">Loading…</p></div>
+    </section>
+
+    <section class="card hidden" id="teamCard">
+      <h2>Team bookings</h2>
+      <div id="team"></div>
     </section>
     <p class="foot" id="who"></p>
   </div>
@@ -198,7 +208,7 @@ function guardPast() {
 }
 function pastNote(n) { if (n) $('parseMsg').insertAdjacentHTML('beforeend', `<div class="note">⏰ ${esc(n)}</div>`); }
 function showDate() { $('dateTxt').textContent = $('date').value ? niceDate($('date').value) : 'Pick a date'; }
-function moreSum() { const a = $('acct').value; $('moreSum').textContent = (a ? a[0].toUpperCase() + a.slice(1) + "'s account" : 'Auto account') + ' · "' + ($('subject').value.trim() || 'Meeting') + '"'; }
+function moreSum() { const a = $('acct').value; $('moreSum').textContent = (a ? a[0].toUpperCase() + a.slice(1) + "'s account" : 'Auto account') + ' · "' + ($('subject').value.trim() || 'Meeting') + '" · ' + ($('vis').value ? 'Core team' : 'Only me'); }
 
 /* ---------- voice / text → fields (understood by the booking server) ---------- */
 function doParse() {
@@ -285,7 +295,7 @@ function initGis() {
 }
 
 /* ---------- find / choose / book ---------- */
-function req() { return { date: $('date').value, start: $('start').value, duration: Number($('dur').value), pax: Number($('pax').value) || 1, acct: $('acct').value, subject: $('subject').value.trim() || 'Meeting' }; }
+function req() { return { date: $('date').value, start: $('start').value, duration: Number($('dur').value), pax: Number($('pax').value) || 1, acct: $('acct').value, subject: $('subject').value.trim() || 'Meeting', share: $('vis').value === 'core' }; }
 function busy(btn, on, label) { btn.disabled = on; if (on) btn.innerHTML = '<span class="spin"></span> ' + label; }
 S.mode = 'find';
 function resetGo() { S.mode = 'find'; $('go').disabled = false; $('go').innerHTML = '🔍 Find rooms'; }
@@ -390,16 +400,34 @@ function showResults(r) {
 }
 
 /* ---------- my bookings ---------- */
+function visFold(ref, shared) {
+  return `<details class="visf"><summary>Who can see this: <b>${shared ? 'Core team' : 'Only me'}</b> ▾</summary><div class="opts">` +
+    `<button type="button" class="opt${shared ? '' : ' on'}" data-vis="${esc(ref)}" data-share="0">Only me</button>` +
+    `<button type="button" class="opt${shared ? ' on' : ''}" data-vis="${esc(ref)}" data-share="1">Core team</button></div></details>`;
+}
+function bookingLine(b) {
+  return `<b>${esc(niceDate(b.date))} ${fmtH(b.from)}–${fmtH(b.to)}</b><br><span class="muted">${esc(b.rooms.join(' + '))} · under ${esc(b.labels.join(' + '))}'s account${b.labels.length > 1 ? 's' : ''}${b.weekly ? '' : ' · ' + esc(b.subject)}</span>`;
+}
 function loadMine() {
   api('mine').then(r => {
     if (!r.ok) { $('mine').innerHTML = `<div class="err">${esc(errText(r))}</div>`; return; }
-    const rows = r.bookings.map(b => `<li><span>${b.weekly ? '<span class="wt">🔁 EXO Work Together Thursday</span><br>' : ''}<b>${esc(niceDate(b.date))} ${fmtH(b.from)}–${fmtH(b.to)}</b><br><span class="muted">${esc(b.rooms.join(' + '))} · under ${esc(b.labels.join(' + '))}'s account${b.labels.length > 1 ? 's' : ''}${b.weekly ? '' : ' · ' + esc(b.subject)}</span></span>${b.canCancel === false ? '<small class="muted" style="text-align:right">Managed by<br>Yen Ling &amp; Mond</small>' : `<button class="btn ghost small" data-cancel="${esc(b.ref)}">Cancel</button>`}</li>`)
-      .concat(r.queued.map(q => `<li><span><b>${esc(niceDate(q.date))} ${fmtT(q.start)}</b> <span class="muted">(queued)</span><br><span class="muted">Books on ${esc(niceDate(q.opensOn))} 12am · ${q.pax} pax${q.room ? ' · ' + esc(q.room) : ''}</span></span><button class="btn ghost small" data-cancel="${esc(q.ref)}">Cancel</button></li>`));
+    const rows = r.bookings.map(b => `<li><span>${b.weekly ? '<span class="wt">🔁 EXO Work Together Thursday</span><br>' : ''}${bookingLine(b)}${b.weekly ? '' : visFold(b.ref, b.shared)}</span>${b.canCancel === false ? '<small class="muted" style="text-align:right">Managed by<br>Yen Ling &amp; Mond</small>' : `<button class="btn ghost small" data-cancel="${esc(b.ref)}">Cancel</button>`}</li>`)
+      .concat(r.queued.map(q => `<li><span><b>${esc(niceDate(q.date))} ${fmtT(q.start)}</b> <span class="muted">(queued)</span><br><span class="muted">Books on ${esc(niceDate(q.opensOn))} 12am · ${q.pax} pax${q.room ? ' · ' + esc(q.room) : ''}</span>${visFold(q.ref, q.shared)}</span><button class="btn ghost small" data-cancel="${esc(q.ref)}">Cancel</button></li>`));
     $('mine').innerHTML = rows.length ? `<ul class="list">${rows.join('')}</ul>` : '<p class="muted">Nothing booked through this page yet.</p>';
-    $('mine').querySelectorAll('[data-cancel]').forEach(btn => btn.onclick = () => {
+    const team = r.team || [];
+    $('teamCard').classList.toggle('hidden', !r.team);
+    $('team').innerHTML = team.length ? `<ul class="list">${team.map(b => `<li><span>${b.weekly ? '<span class="wt">🔁 EXO Work Together Thursday</span><br>' : ''}${bookingLine(b)}${b.by ? `<br><span class="by">Booked by ${esc(b.by)}</span>` : ''}</span>${b.weekly ? (b.canCancel ? `<button class="btn ghost small" data-cancel="${esc(b.ref)}">Cancel</button>` : '<small class="muted" style="text-align:right">Managed by<br>Yen Ling &amp; Mond</small>') : ''}</li>`).join('')}</ul>`
+      : '<p class="muted">Nothing shared with the core team yet.</p>';
+    document.querySelectorAll('#mine [data-cancel], #team [data-cancel]').forEach(btn => btn.onclick = () => {
       if (btn.dataset.sure !== '1') { btn.dataset.sure = '1'; btn.textContent = 'Tap again to cancel'; return; }
       btn.disabled = true; btn.textContent = 'Cancelling…';
       api('cancel', { ref: btn.dataset.cancel }).then(x => { if (!x.ok) { btn.disabled = false; btn.textContent = 'Cancel'; alertBox(errText(x)); } loadMine(); });
+    });
+    $('mine').querySelectorAll('[data-vis]').forEach(btn => btn.onclick = () => {
+      if (btn.classList.contains('on')) return;
+      const box = btn.closest('.opts'); box.querySelectorAll('button').forEach(x => x.disabled = true);
+      api('visibility', { ref: btn.dataset.vis, share: btn.dataset.share === '1' }).then(x => { if (!x.ok) alertBox(errText(x)); loadMine(); })
+        .catch(() => { alertBox("Couldn't change who can see it. Please try again."); loadMine(); });
     });
   }).catch(() => { $('mine').innerHTML = '<div class="err">Couldn\'t load your bookings.</div>'; });
 }
@@ -412,12 +440,12 @@ $('said').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKe
 $('paxMinus').onclick = () => { $('pax').value = Math.max(1, (Number($('pax').value) || 1) - 1); resetGo(); };
 $('paxPlus').onclick = () => { $('pax').value = Math.min(40, (Number($('pax').value) || 1) + 1); resetGo(); };
 $('date').addEventListener('change', () => { $('parseMsg').innerHTML = ''; pastNote(guardPast()); resetGo(); });
-['start', 'dur', 'pax', 'acct', 'subject'].forEach(id => $(id).addEventListener('change', () => { moreSum(); resetGo(); }));
+['start', 'dur', 'pax', 'acct', 'subject', 'vis'].forEach(id => $(id).addEventListener('change', () => { moreSum(); resetGo(); }));
 $('subject').addEventListener('input', moreSum);
 fillSelects(); setupMic(); initGis();
 
 /* ---------- stay up to date: reload once if a newer page is published ---------- */
-const PAGE_VER = '2026-11-24a';
+const PAGE_VER = '2026-11-26a';
 function checkVersion() {
   if (document.querySelector('.spin')) return;
   fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(t => {
